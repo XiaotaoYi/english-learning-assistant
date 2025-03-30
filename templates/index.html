@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英语学习助手</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .results {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .result-item {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .result-item:hover {
+            background-color: #f5f5f5;
+        }
+        .selected-sentence {
+            margin-top: 30px;
+            display: none;
+        }
+        .original, .translation {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .original {
+            background-color: #f8f9fa;
+        }
+        .translation {
+            background-color: #e8f0fe;
+        }
+        h2 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>英语学习助手</h1>
+        
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="输入英文短语进行搜索...">
+            <button id="search-button">搜索</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <p>正在搜索中...</p>
+        </div>
+        
+        <div class="results" id="results"></div>
+        
+        <div class="selected-sentence" id="selected-sentence">
+            <h2>选中的句子</h2>
+            <div class="original" id="original-text"></div>
+            <div class="loading" id="translation-loading">
+                <p>正在翻译中...</p>
+            </div>
+            <div class="translation" id="translation-text"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+            const resultsContainer = document.getElementById('results');
+            const selectedSentence = document.getElementById('selected-sentence');
+            const originalText = document.getElementById('original-text');
+            const translationText = document.getElementById('translation-text');
+            const loading = document.getElementById('loading');
+            const translationLoading = document.getElementById('translation-loading');
+            
+            // 搜索功能
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            function performSearch() {
+                const query = searchInput.value.trim();
+                if (!query) return;
+                
+                // 清空之前的结果
+                resultsContainer.innerHTML = '';
+                selectedSentence.style.display = 'none';
+                
+                // 显示加载状态
+                loading.style.display = 'block';
+                
+                // 调用后端API
+                fetch('http://localhost:8082/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    
+                    if (data.length === 0) {
+                        resultsContainer.innerHTML = '<p>没有找到相关结果</p>';
+                        return;
+                    }
+                    
+                    // 显示搜索结果
+                    data.forEach(result => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'result-item';
+                        resultItem.textContent = result.sentence;
+                        resultItem.addEventListener('click', () => selectSentence(result.sentence));
+                        resultsContainer.appendChild(resultItem);
+                    });
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    resultsContainer.innerHTML = `<p>搜索出错: ${error.message}</p>`;
+                });
+            }
+            
+            // 选择句子并翻译
+            function selectSentence(sentence) {
+                originalText.textContent = sentence;
+                translationText.textContent = '';
+                selectedSentence.style.display = 'block';
+                translationLoading.style.display = 'block';
+                
+                // 调用翻译API
+                fetch('http://localhost:8082/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: sentence })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    translationLoading.style.display = 'none';
+                    if (data.error) {
+                        translationText.textContent = `翻译错误: ${data.error}`;
+                    } else {
+                        translationText.textContent = data.translation;
+                    }
+                })
+                .catch(error => {
+                    translationLoading.style.display = 'none';
+                    translationText.textContent = `翻译出错: ${error.message}`;
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
